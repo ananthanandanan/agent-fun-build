@@ -24,7 +24,39 @@ When a user asks about files or directories:
 4. Always report what you actually found, not what you expect to find
 5. Be concise in your final answer
 
-Important: Only use tools when you need filesystem information. For general questions, answer directly."""
+Important: Only use tools when you need filesystem information. For general questions, answer directly.
+
+{
+  "choices": [
+    {
+      "message": {
+        "role": "assistant",
+        "content": "The file is located in the current directory.",
+        "tool_calls": [
+          {
+            "function": {
+              "name": "list_directory",
+              "arguments": "{\"path\": \"/home/user/documents\"}"
+            },
+            "id": "tool-call-1"
+          }
+        ]
+      },
+      "finish_reason": "tool_calls"
+    }
+  ],
+  "tool_calls": [
+    {
+      "function": {
+        "name": "list_directory",
+        "arguments": "{\"path\": \"/home/user/documents\"}"
+      },
+      "id": "tool-call-1"
+    }
+  ]
+}
+
+"""
 
 
 class FileAgent:
@@ -56,6 +88,8 @@ class FileAgent:
         False if no tools were called (we have a final answer).
         """
         message = response.choices[0].message
+        print( "message:", message)
+        print( "response:", response)
 
         # Append the assistant's raw message object to history.
         # IMPORTANT: OpenAI requires this exact object (with tool_calls intact)
