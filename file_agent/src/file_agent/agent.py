@@ -27,33 +27,35 @@ When a user asks about files or directories:
 Important: Only use tools when you need filesystem information. For general questions, answer directly.
 
 {
+  "id": "chatcmpl-DGNRyDnmgGB9hPYx2iDqqDwuONNzm",
   "choices": [
     {
+      "index": 0,
       "message": {
         "role": "assistant",
-        "content": "The file is located in the current directory.",
+        "content": null,
         "tool_calls": [
           {
+            "id": "call_5YJTGZQwz6kLz2NGht255arI",
+            "type": "function",
             "function": {
-              "name": "list_directory",
-              "arguments": "{\"path\": \"/home/user/documents\"}"
-            },
-            "id": "tool-call-1"
+              "name": "get_working_directory",
+              "arguments": "{}"
+            }
           }
         ]
       },
       "finish_reason": "tool_calls"
     }
   ],
-  "tool_calls": [
-    {
-      "function": {
-        "name": "list_directory",
-        "arguments": "{\"path\": \"/home/user/documents\"}"
-      },
-      "id": "tool-call-1"
-    }
-  ]
+  "created": 1772795762,
+  "model": "gpt-4o-mini-2024-07-18",
+  "object": "chat.completion",
+  "usage": {
+    "prompt_tokens": 567,
+    "completion_tokens": 12,
+    "total_tokens": 579
+  }
 }
 
 """
@@ -88,8 +90,6 @@ class FileAgent:
         False if no tools were called (we have a final answer).
         """
         message = response.choices[0].message
-        print( "message:", message)
-        print( "response:", response)
 
         # Append the assistant's raw message object to history.
         # IMPORTANT: OpenAI requires this exact object (with tool_calls intact)

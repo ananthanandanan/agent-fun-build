@@ -6,40 +6,45 @@ Key learning: Notice the description fields. These are not for you — they're i
 TOOLS = [
     {
         "type": "function",
-        "name": "get_working_directory",
-        "description": (
-            "Returns the current working directory. "
-            "Use this first to understand where you are in the filesystem "
-            "before navigating relative paths."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {},
-            "required": [],
+        "function": {
+            "name": "get_working_directory",
+            "description": (
+                "Returns the current working directory. "
+                "Use this first to understand where you are in the filesystem "
+                "before navigating relative paths."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+            },
         },
     },
     {
         "type": "function",
-        "name": "list_directory",
-        "description": (
+        "function": {
+            "name": "list_directory",
+            "description": (
                 "Lists the files and subdirectories inside a given directory path. "
                 "Use this to explore the filesystem and find relevant files."
             ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Absolute or relative path to the directory to list.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Absolute or relative path to the directory to list.",
                     }
                 },
-            "required": ["path"],
+                "required": ["path"],
+            },
         },
     },
     {
         "type": "function",
-        "name": "read_file",
-        "description": (
+        "function": {
+            "name": "read_file",
+            "description": (
                 "Reads and returns the text content of a file. "
                 "Use this to read configuration files, notes, code, logs, etc. "
                 "Do not use on binary files."
@@ -54,10 +59,12 @@ TOOLS = [
                 },
                 "required": ["path"],
             },
+        },
     },
     {
         "type": "function",
-        "name": "search_files",
+        "function": {
+            "name": "search_files",
             "description": (
                 "Recursively searches a directory for files whose names match "
                 "a glob pattern (e.g. '*.py', '*.md', 'config*'). "
@@ -77,6 +84,6 @@ TOOLS = [
                 },
                 "required": ["directory", "pattern"],
             },
+        },
     },
-    
 ]
