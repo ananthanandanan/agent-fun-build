@@ -28,7 +28,7 @@ Project-specific docs live in `file_agent/README.md`.
 
 ## Screenshot
 
-![File Agent CLI screenshot](screenshot.png)
+![File Agent CLI screenshot](file_agent/screenshot.png)
 
 ## Quick start
 
