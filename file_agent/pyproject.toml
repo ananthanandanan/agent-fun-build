@@ -1,0 +1,10 @@
+[project]
+name = "file-agent"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "openai>=2.26.0",
+    "rich>=14.3.3",
+]
