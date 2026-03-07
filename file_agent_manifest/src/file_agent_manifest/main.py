@@ -31,8 +31,8 @@ HELP_TEXT = """
 
 def main():
     console.print(Panel.fit(
-        "[bold cyan]Context-Aware File Agent[/bold cyan]\n"
-        "[dim]Powered by OpenAI + Manual Orchestration[/dim]",
+        "[bold cyan]Context-Aware File Agent Manifest[/bold cyan]\n"
+        "[dim]Powered by OpenAI + Manifest Orchestration[/dim]",
         border_style="cyan"
     ))
     console.print(HELP_TEXT)

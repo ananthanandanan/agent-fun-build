@@ -5,82 +5,48 @@ from rich.console import Console
 from pathlib import Path
 import yaml
 
+BASE_DIR = Path(__file__).parent 
+
 from .tools import execute_tool
 from .tool_schemas import TOOLS
 
 console = Console()
 
-SYSTEM_PROMPT = """You are a helpful CLI assistant that can navigate and read the local filesystem to answer questions.
 
-You have access to tools that let you:
-- Find out your current working directory
-- List directory contents
-- Read file contents
-- Search for files by name pattern
-
-When a user asks about files or directories:
-1. Start by getting your bearings (working directory) if you don't know where you are
-2. Navigate step by step — list directories before trying to read files inside them
-3. If you can't find something, try searching with a pattern
-4. Always report what you actually found, not what you expect to find
-5. Be concise in your final answer
-
-Important: Only use tools when you need filesystem information. For general questions, answer directly.
-
-{
-  "id": "chatcmpl-DGNRyDnmgGB9hPYx2iDqqDwuONNzm",
-  "choices": [
-    {
-      "index": 0,
-      "message": {
-        "role": "assistant",
-        "content": null,
-        "tool_calls": [
-          {
-            "id": "call_5YJTGZQwz6kLz2NGht255arI",
-            "type": "function",
-            "function": {
-              "name": "get_working_directory",
-              "arguments": "{}"
-            }
-          }
-        ]
-      },
-      "finish_reason": "tool_calls"
-    }
-  ],
-  "created": 1772795762,
-  "model": "gpt-4o-mini-2024-07-18",
-  "object": "chat.completion",
-  "usage": {
-    "prompt_tokens": 567,
-    "completion_tokens": 12,
-    "total_tokens": 579
-  }
-}
-
-"""
-
-def load_agent_manifest(path: str = "file_agent_manifest/agent.yaml") -> dict:
+def load_agent_manifest(path: str = "agent.yaml") -> dict:
     """
     Load the agent manifest from a YAML file.
     """
-    with open(path, "r") as f:
+    with open(BASE_DIR / path, "r") as f:
         return yaml.safe_load(f)
 
 def load_role(role_path: str) -> str:
     """Read the ROLE.md file and return it as the system prompt."""
-    return Path(role_path).read_text(encoding="utf-8")
+    return (BASE_DIR / role_path).read_text(encoding="utf-8")
 
+def load_skills(skill_paths: list[str]) -> str:
+    sections = []
+    for path in skill_paths:
+        p = BASE_DIR / path
+        if not p.exists():
+            console.print(f"[yellow]Warning: skill not found: {path}[/yellow]")
+            continue
+        sections.append(p.read_text(encoding="utf-8"))
+    return "\n\n---\n\n".join(sections)
+
+def build_system_prompt(manifest: dict) -> str:
+    role = load_role(manifest["role"])
+    skills = load_skills(manifest["skills"])
+    return role + "\n\n---\n\n## Loaded Skills\n\n" + skills
 
 class FileAgent:
-    def __init__(self, manifest_path: str = "file_agent_manifest/agent.yaml"):
+    def __init__(self, manifest_path: str = "agent.yaml"):
         self.client = openai.OpenAI()
         self.manifest = load_agent_manifest(manifest_path)
-        self.system_prompt = load_role(self.manifest["role"])  # reads ROLE.md
         self.model = self.manifest["model"]["name"]
         self.max_iterations = self.manifest["settings"]["max_iterations"]
-        self.skills = self.manifest["skills"]
+
+        self.system_prompt = build_system_prompt(self.manifest)
         # OpenAI includes the system message in the conversation history list
         self.conversation_history = [
             {"role": "system", "content": self.system_prompt}
@@ -188,6 +154,6 @@ class FileAgent:
     def reset(self):
         """Clear conversation history (preserve system message)."""
         self.conversation_history = [
-            {"role": "system", "content": SYSTEM_PROMPT}
+            {"role": "system", "content": self.system_prompt}
         ]
         console.print("[dim]Conversation history cleared.[/dim]")
