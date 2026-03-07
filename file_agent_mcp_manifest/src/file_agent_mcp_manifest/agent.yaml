@@ -1,0 +1,32 @@
+# agent.yaml — The agent's top-level manifest
+
+name: "File Agent Manifest"
+version: "1.0.0"
+description: "A CLI agent that navigates and reads the local filesystem manifest"
+
+# Which LLM to use
+model:
+  provider: openai
+  name: gpt-4o-mini
+
+# Point to the role definition
+role: ROLE.md
+
+# Which skills this agent has loaded
+# Skills are loaded in order — later skills can reference earlier ones
+skills:
+  - skills/filesystem/SKILL.md
+  - skills/summarizer/SKILL.md
+
+# Safety settings
+settings:
+  max_iterations: 10
+  max_file_size_kb: 500
+  allowed_extensions:
+    - .py
+    - .md
+    - .txt
+    - .toml
+    - .yaml
+    - .json
+    - .env
