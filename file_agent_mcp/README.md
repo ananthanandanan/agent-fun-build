@@ -1,31 +1,64 @@
 # File Agent MCP
 
-A CLI agent that navigates and reads your local filesystem. Behavior is defined by a **manifest** (role, skills, settings in YAML/Markdown), and **tools are loaded dynamically** from an MCP-style manifest (`mcp.json`) instead of being hardcoded.
+A **context-aware CLI file agent** that navigates and reads your local filesystem. It uses **OpenAI** for the LLM and **MCP (Model Context Protocol)** for tools: filesystem operations are provided by an MCP server over stdio, and the agent discovers and calls those tools at runtime.
 
 ![File Agent MCP](screenshot.png)
 
 ## Features
 
-- **Manifest-driven**: Agent identity and behavior come from `agent.yaml`, `ROLE.md`, and skill files under `skills/`.
-- **MCP-style tool loading**: Which tools the agent can use is declared in `mcp.json` per “server”; only those tools are registered with the LLM and executed.
-- **Filesystem tools**: List directories, search files by pattern, read file contents (with safe size limits)—all selectable via the MCP manifest.
-- **OpenAI tool-calling**: Uses an LLM (default: `gpt-4o-mini`) to plan and execute multi-step file operations.
-- **Rich CLI**: Commands like `reset`, `history`, `help`, and `exit`; output via [Rich](https://github.com/Textualize/rich).
+- **MCP-driven tools** — Tools are not hardcoded in the agent. They come from an MCP server defined in `mcp.json`. The agent connects at startup, fetches tool schemas in OpenAI format, and routes each tool call to the correct server.
+- **Manifest-based configuration** — Role, model, skills, and MCP config are defined in `agent.yaml` and `ROLE.md`; add or swap MCP servers without changing agent code.
+- **Agentic loop** — User message → LLM (with tools) → tool calls → MCP execution → results back to LLM → repeat until a final answer.
+- **Rich CLI** — Commands: `reset`, `history`, `exit`, `help`. Output uses Rich panels and clear tool-call feedback.
 
-## Prerequisites
+## Architecture
 
-- Python 3.12+
-- [uv](https://docs.astral.sh/uv/) (recommended) or pip
-- OpenAI API key (set in `.env` as `OPENAI_API_KEY`)
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  main.py (CLI loop, Rich UI, meta-commands)                      │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+┌────────────────────────────▼────────────────────────────────────┐
+│  agent.py (FileAgent)                                            │
+│  • Loads agent.yaml → model, role, mcp path, skills              │
+│  • Builds system prompt from ROLE.md + skills/*.md               │
+│  • MCPClient.connect_all(mcp.json) → tools from MCP              │
+│  • run(user_input): user msg → LLM → tool_calls → MCP → LLM …   │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+┌────────────────────────────▼────────────────────────────────────┐
+│  mcp_client.py (MCPClient)                                       │
+│  • Spawns MCP server subprocess(es) via stdio                    │
+│  • list_tools() → OpenAI-format schemas                          │
+│  • call_tool(name, args) → string result                         │
+│  • cleanup() closes connections and subprocesses                 │
+└────────────────────────────┬────────────────────────────────────┘
+                             │ stdio (JSON-RPC)
+┌────────────────────────────▼────────────────────────────────────┐
+│  mcp_server.py (FastMCP "filesystem-server")                     │
+│  • Exposes: get_working_directory, list_directory, read_file,    │
+│    search_files (implemented in tools.py)                        │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+- **Config**: `agent.yaml` (manifest), `mcp.json` (server list), `ROLE.md`, `skills/*.md`.
+- **Tools**: Implemented in `tools.py`; the MCP server exposes them via FastMCP with docstrings and type hints for schema generation.
+
+## Requirements
+
+- **Python 3.12+**
+- **uv** (recommended) or pip
+- **OpenAI API key** — set in `.env` as `OPENAI_API_KEY`
 
 ## Setup
 
+From the project root (where `pyproject.toml` lives):
+
 ```bash
-cd file_agent_mcp_manifest
 uv sync
 ```
 
-Create a `.env` in the project root (or next to where you run the app) with:
+Create a `.env` in the same directory as your run (or project root) with:
 
 ```
 OPENAI_API_KEY=sk-...
@@ -34,109 +67,63 @@ OPENAI_API_KEY=sk-...
 ## Run
 
 ```bash
-uv run file-agent-mcp-manifest
+uv run file-agent-mcp
 ```
 
-Or after `uv sync`:
+Or:
 
 ```bash
-uv run python -m file_agent_mcp_manifest.main
+uv run python -m file_agent_mcp.main
 ```
 
-## Tool loading: MCP manifest (`mcp.json`)
+Then try prompts like:
 
-Tools are **dynamically loaded** from the MCP manifest. The agent does not see every possible tool—only the ones listed under each server’s `tools` array.
+- "What Python files are in my current directory?"
+- "Read the README in this project."
+- "Find all .env files under my home directory."
+- "What does pyproject.toml say about dependencies?"
 
-| Field            | Purpose                                                                                                                                         |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`mcpVersion`** | Manifest format version.                                                                                                                        |
-| **`servers`**    | List of tool sources. Each server has a `name`, optional `description`, `transport`, `module`, and **`tools`** (array of tool names to enable). |
+## Commands (in the CLI)
 
-The loader reads `mcp.json`, collects all enabled tool names across servers, then filters the internal tool schemas and registry to only those names. So you control the agent’s tool set by editing the manifest.
+| Command   | Description                                       |
+| --------- | ------------------------------------------------- |
+| `reset`   | Clear conversation history and start fresh        |
+| `history` | Show how many messages are in the current context |
+| `exit`    | Quit the agent                                    |
+| `help`    | Show available commands and example prompts       |
 
-### Example: `mcp.json`
+## Project layout
 
-```json
-{
-  "mcpVersion": "0.1",
-  "servers": [
-    {
-      "name": "filesystem",
-      "description": "Local filesystem read operations",
-      "transport": "local",
-      "module": "file_agent_mcp_manifest.tools",
-      "tools": [
-        "get_working_directory",
-        "list_directory",
-        "read_file",
-        "search_files"
-      ]
-    }
-  ]
-}
+```
+file_agent_mcp/
+├── pyproject.toml
+├── README.md
+└── src/file_agent_mcp/
+    ├── main.py          # CLI entrypoint, Rich UI, meta-commands
+    ├── agent.py         # FileAgent: manifest, system prompt, MCP client, agentic loop
+    ├── mcp_client.py    # MCP client: connect_all, get_openai_tools, call_tool, cleanup
+    ├── mcp_server.py    # FastMCP server exposing filesystem tools
+    ├── tools.py         # Tool implementations (list_directory, read_file, search_files, etc.)
+    ├── agent.yaml       # Manifest: model, role, mcp path, skills, settings
+    ├── mcp.json         # MCP servers to connect to (e.g. filesystem stdio server)
+    ├── ROLE.md          # System role / identity and boundaries
+    └── skills/          # Loaded into system prompt
+        ├── filesystem/SKILL.md
+        └── summarizer/SKILL.md
 ```
 
-- **Enable a tool**: Add its name to the `tools` array for the appropriate server.
-- **Disable a tool**: Remove it from `tools` (or omit that server).
-- **Add another server**: Add a new entry to `servers` with its own `tools` list (implementation may resolve tools from the given `module` or a future MCP transport).
+## Adding or changing MCP servers
 
-Paths to `mcp.json` and `agent.yaml` are resolved from the package directory (`src/file_agent_mcp_manifest/`).
+1. **Implement or reuse an MCP server** (e.g. stdio with `StdioServerParameters`).
+2. **Register it in `mcp.json`** under `servers` with `name`, `command`, `args`, and optional `env`.
+3. Restart the agent; it will connect at startup and merge the new server’s tools with existing ones. No agent code changes are required — the agent uses whatever tools the MCP servers advertise.
 
-## Agent manifest layout (`agent.yaml`)
+## Safety and limits
 
-| Item                    | Purpose                                                                              |
-| ----------------------- | ------------------------------------------------------------------------------------ |
-| **`agent.yaml`**        | Top-level config: model, role path, MCP manifest path, skill paths, safety settings. |
-| **`ROLE.md`**           | System prompt: identity, responsibilities, reasoning style, boundaries.              |
-| **`skills/*/SKILL.md`** | Loaded in order; each adds instructions and patterns for the agent.                  |
+- **Max iterations** — The agent loop is capped (e.g. 10 steps) to avoid runaway tool use.
+- **File handling** — The filesystem tools respect path normalization, avoid reading binaries as text, and can truncate large files; see `agent.yaml` and `tools.py` for limits and allowed extensions.
+- **Secrets** — Do not commit `.env` or API keys; skills instruct the agent not to echo raw `.env` values.
 
-The agent builds its system prompt by concatenating the role and all enabled skills. Paths in the manifest are relative to the package directory (`src/file_agent_mcp_manifest/`).
+## License
 
-### Example: `agent.yaml`
-
-```yaml
-name: "File Agent MCP Manifest"
-model:
-  provider: openai
-  name: gpt-4o-mini
-role: ROLE.md
-mcp: mcp.json
-skills:
-  - skills/filesystem/SKILL.md
-  - skills/summarizer/SKILL.md
-settings:
-  max_iterations: 10
-  max_file_size_kb: 500
-```
-
-### Bundled skills
-
-- **Filesystem** — Orient with `get_working_directory`, then use `list_directory` and `search_files` to find files (when enabled in `mcp.json`).
-- **Summarizer** — Use `read_file` and summarize by file type (e.g. `.toml`, `.py`, `.md`).
-
-## CLI commands
-
-At the `You` prompt you can type:
-
-- **`reset`** — Clear conversation history (keeps system prompt).
-- **`history`** — Show how many messages are in the current context.
-- **`help`** — Show available commands and example questions.
-- **`exit`** — Quit the agent.
-
-## Customization
-
-- **Change behavior**: Edit `ROLE.md` or the Markdown in `skills/`; restart the app.
-- **Change which tools are available**: Edit `mcp.json`—add or remove tool names under each server’s `tools` array.
-- **Add a skill**: Add a new `skills/<name>/SKILL.md` and append its path under `skills` in `agent.yaml`.
-- **Change model**: Update `model.name` in `agent.yaml` (e.g. `gpt-4o`).
-- **Different MCP config**: Set `mcp` in `agent.yaml` to another path (e.g. `mcp-minimal.json`). For code-level override you can still pass `mcp_path` to `FileAgent`.
-- **Different manifests**: Pass `manifest_path` to `FileAgent` in code to use another `agent.yaml`.
-
-## Finding the skills folder from the CLI
-
-When you run the agent, the process current working directory is usually the **project root** (`file_agent_mcp_manifest/`). The skills live under the package at `src/file_agent_mcp_manifest/skills/`. To have the agent list or summarize them, ask for that path explicitly, for example:
-
-- _"List the contents of `src/file_agent_mcp_manifest/skills`"_
-- _"Read and summarize each SKILL.md in `src/file_agent_mcp_manifest/skills`"_
-
-Or use search: _"Search for files named SKILL.md in the current directory and summarize each one."_
+See repository root.
