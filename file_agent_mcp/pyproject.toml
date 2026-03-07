@@ -1,0 +1,25 @@
+[project]
+name = "file-agent-mcp"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "mcp>=1.26.0",
+    "openai>=2.26.0",
+    "python-dotenv>=1.2.2",
+    "pyyaml>=6.0.3",
+    "rich>=14.3.3",
+]
+
+[project.scripts]
+file-agent-mcp = "file_agent_mcp.main:main"
+
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+
+[tool.hatchling.build.targets.wheel]
+packages = ["src/file_agent_mcp"]
