@@ -123,7 +123,3 @@ file_agent_mcp/
 - **Max iterations** — The agent loop is capped (e.g. 10 steps) to avoid runaway tool use.
 - **File handling** — The filesystem tools respect path normalization, avoid reading binaries as text, and can truncate large files; see `agent.yaml` and `tools.py` for limits and allowed extensions.
 - **Secrets** — Do not commit `.env` or API keys; skills instruct the agent not to echo raw `.env` values.
-
-## License
-
-See repository root.
