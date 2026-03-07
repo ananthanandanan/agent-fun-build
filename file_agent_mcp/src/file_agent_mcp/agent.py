@@ -4,10 +4,10 @@ import openai
 from rich.console import Console
 from pathlib import Path
 import yaml
-
+import asyncio
 BASE_DIR = Path(__file__).parent 
 
-from .tool_loader import load_tools_from_manifest
+from .mcp_client import MCPClient
 
 console = Console()
 
@@ -44,15 +44,22 @@ class FileAgent:
         self.manifest = load_agent_manifest(manifest_path)
         self.model = self.manifest["model"]["name"]
         self.max_iterations = self.manifest["settings"]["max_iterations"]
-        # MCP config path: from manifest if set, else override, else default
-        resolved_mcp = mcp_path or self.manifest.get("mcp", "mcp.json")
-        self.tools, self.tool_registry = load_tools_from_manifest(resolved_mcp)
+        self.tools = []
 
+        self.mcp = MCPClient()
+        asyncio.run(self._connect_mcp())
         self.system_prompt = build_system_prompt(self.manifest)
         # OpenAI includes the system message in the conversation history list
         self.conversation_history = [
             {"role": "system", "content": self.system_prompt}
         ]
+        
+    async def _connect_mcp(self):
+        """Connect to all MCP servers and populate self.tools."""
+        mcp_config = BASE_DIR / self.manifest.get("mcp", "mcp.json")
+        await self.mcp.connect_all(str(mcp_config))
+        # tools is now the OpenAI-format list fetched live from MCP servers
+        self.tools = self.mcp.get_openai_tools()
 
     def _add_user_message(self, content: str):
         """Append a user message to history."""
@@ -66,11 +73,9 @@ class FileAgent:
             messages=self.conversation_history,
         )
     
-    # agent.py — after tool_loader
-    def _execute_tool(self, name: str, tool_input: dict) -> str:
-        if name not in self.tool_registry:
-            return f"Error: tool '{name}' not available."
-        return self.tool_registry[name](**tool_input)
+    async def _execute_tool(self, name: str, tool_input: dict) -> str:
+        """Ask the MCP client to run the tool and return a string result."""
+        return await self.mcp.call_tool(name, tool_input)
 
     def _handle_tool_use(self, response) -> bool:
         """
@@ -102,7 +107,7 @@ class FileAgent:
                 f"[dim]with[/dim] {tool_input}"
             )
 
-            result = self._execute_tool(name, tool_input)
+            result = asyncio.run(self._execute_tool(name, tool_input))
 
             console.print(
                 f"  [dim]✓ Result preview: {result[:120].strip()}...[/dim]\n"
@@ -165,3 +170,7 @@ class FileAgent:
             {"role": "system", "content": self.system_prompt}
         ]
         console.print("[dim]Conversation history cleared.[/dim]")
+
+    async def cleanup(self):
+        """Call this on shutdown to close MCP subprocesses cleanly."""
+        await self.mcp.cleanup()

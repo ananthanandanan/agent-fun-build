@@ -1,17 +1,13 @@
 {
-    "mcpVersion": "0.1",
-    "servers": [
-      {
-        "name": "filesystem",
-        "description": "Local filesystem read operations",
-        "transport": "local",
-        "module": "file_agent_mcp_manifest.tools",
-        "tools": [
-          "get_working_directory",
-          "list_directory",
-          "read_file",
-          "search_files"
-        ]
-      }
-    ]
-  }
+  "mcpVersion": "1.0",
+  "servers": [
+    {
+      "name": "filesystem",
+      "description": "Local filesystem read operations",
+      "transport": "stdio",
+      "command": "uv",
+      "args": ["run", "python", "-m", "file_agent_mcp.mcp_server"],
+      "env": null
+    }
+  ]
+}
