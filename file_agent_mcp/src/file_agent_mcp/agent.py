@@ -1,10 +1,10 @@
 # src/file_agent_mcp_manifest/agent.py
 import json
+from typing import Any, cast
 import openai
 from rich.console import Console
 from pathlib import Path
 import yaml
-import asyncio
 BASE_DIR = Path(__file__).parent 
 
 from .mcp_client import MCPClient
@@ -44,15 +44,11 @@ class FileAgent:
         self.manifest = load_agent_manifest(manifest_path)
         self.model = self.manifest["model"]["name"]
         self.max_iterations = self.manifest["settings"]["max_iterations"]
-        self.tools = []
+        self.tools: list[dict[str, Any]] = []
 
         self.mcp = MCPClient()
-        asyncio.run(self._connect_mcp())
-        self.system_prompt = build_system_prompt(self.manifest)
-        # OpenAI includes the system message in the conversation history list
-        self.conversation_history = [
-            {"role": "system", "content": self.system_prompt}
-        ]
+        self.system_prompt = ""
+        self.conversation_history: list[dict[str, Any]] = []
         
     async def _connect_mcp(self):
         """Connect to all MCP servers and populate self.tools."""
@@ -60,6 +56,14 @@ class FileAgent:
         await self.mcp.connect_all(str(mcp_config))
         # tools is now the OpenAI-format list fetched live from MCP servers
         self.tools = self.mcp.get_openai_tools()
+
+    async def setup(self):
+        """Async initialization entrypoint called once after __init__."""
+        await self._connect_mcp()
+        self.system_prompt = build_system_prompt(self.manifest)
+        self.conversation_history = [
+            {"role": "system", "content": self.system_prompt}
+        ]
 
     def _add_user_message(self, content: str):
         """Append a user message to history."""
@@ -77,7 +81,7 @@ class FileAgent:
         """Ask the MCP client to run the tool and return a string result."""
         return await self.mcp.call_tool(name, tool_input)
 
-    def _handle_tool_use(self, response) -> bool:
+    async def _handle_tool_use(self, response) -> bool:
         """
         Process all tool call requests from a response.
 
@@ -107,7 +111,7 @@ class FileAgent:
                 f"[dim]with[/dim] {tool_input}"
             )
 
-            result = asyncio.run(self._execute_tool(name, tool_input))
+            result = await self._execute_tool(name, tool_input)
 
             console.print(
                 f"  [dim]✓ Result preview: {result[:120].strip()}...[/dim]\n"
@@ -124,7 +128,7 @@ class FileAgent:
 
         return True  # Tools were called, continue the loop
 
-    def run(self, user_input: str) -> str:
+    async def run(self, user_input: str) -> str:
         """
         The main agentic loop.
 
@@ -145,14 +149,20 @@ class FileAgent:
 
             if choice.finish_reason == "stop":
                 # LLM is done — extract the text response
-                final_answer = choice.message.content
+                content = choice.message.content
+                if isinstance(content, str):
+                    final_answer = content
+                elif content is None:
+                    final_answer = ""
+                else:
+                    final_answer = json.dumps(content)
                 # Save to history for future turns
                 self.conversation_history.append(choice.message)
                 return final_answer
 
             elif choice.finish_reason == "tool_calls":
                 # LLM wants to call tools
-                should_continue = self._handle_tool_use(response)
+                should_continue = await self._handle_tool_use(response)
                 if not should_continue:
                     break
 

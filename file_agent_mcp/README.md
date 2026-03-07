@@ -1,6 +1,8 @@
-# File Agent MCP Manifest
+# File Agent MCP
 
 A CLI agent that navigates and reads your local filesystem. Behavior is defined by a **manifest** (role, skills, settings in YAML/Markdown), and **tools are loaded dynamically** from an MCP-style manifest (`mcp.json`) instead of being hardcoded.
+
+![File Agent MCP](screenshot.png)
 
 ## Features
 
@@ -45,10 +47,10 @@ uv run python -m file_agent_mcp_manifest.main
 
 Tools are **dynamically loaded** from the MCP manifest. The agent does not see every possible tool—only the ones listed under each server’s `tools` array.
 
-| Field | Purpose |
-|-------|--------|
-| **`mcpVersion`** | Manifest format version. |
-| **`servers`** | List of tool sources. Each server has a `name`, optional `description`, `transport`, `module`, and **`tools`** (array of tool names to enable). |
+| Field            | Purpose                                                                                                                                         |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`mcpVersion`** | Manifest format version.                                                                                                                        |
+| **`servers`**    | List of tool sources. Each server has a `name`, optional `description`, `transport`, `module`, and **`tools`** (array of tool names to enable). |
 
 The loader reads `mcp.json`, collects all enabled tool names across servers, then filters the internal tool schemas and registry to only those names. So you control the agent’s tool set by editing the manifest.
 
@@ -82,11 +84,11 @@ Paths to `mcp.json` and `agent.yaml` are resolved from the package directory (`s
 
 ## Agent manifest layout (`agent.yaml`)
 
-| Item | Purpose |
-|------|--------|
-| **`agent.yaml`** | Top-level config: model, role path, MCP manifest path, skill paths, safety settings. |
-| **`ROLE.md`** | System prompt: identity, responsibilities, reasoning style, boundaries. |
-| **`skills/*/SKILL.md`** | Loaded in order; each adds instructions and patterns for the agent. |
+| Item                    | Purpose                                                                              |
+| ----------------------- | ------------------------------------------------------------------------------------ |
+| **`agent.yaml`**        | Top-level config: model, role path, MCP manifest path, skill paths, safety settings. |
+| **`ROLE.md`**           | System prompt: identity, responsibilities, reasoning style, boundaries.              |
+| **`skills/*/SKILL.md`** | Loaded in order; each adds instructions and patterns for the agent.                  |
 
 The agent builds its system prompt by concatenating the role and all enabled skills. Paths in the manifest are relative to the package directory (`src/file_agent_mcp_manifest/`).
 
@@ -134,7 +136,7 @@ At the `You` prompt you can type:
 
 When you run the agent, the process current working directory is usually the **project root** (`file_agent_mcp_manifest/`). The skills live under the package at `src/file_agent_mcp_manifest/skills/`. To have the agent list or summarize them, ask for that path explicitly, for example:
 
-- *"List the contents of `src/file_agent_mcp_manifest/skills`"*
-- *"Read and summarize each SKILL.md in `src/file_agent_mcp_manifest/skills`"*
+- _"List the contents of `src/file_agent_mcp_manifest/skills`"_
+- _"Read and summarize each SKILL.md in `src/file_agent_mcp_manifest/skills`"_
 
-Or use search: *"Search for files named SKILL.md in the current directory and summarize each one."*
+Or use search: _"Search for files named SKILL.md in the current directory and summarize each one."_
