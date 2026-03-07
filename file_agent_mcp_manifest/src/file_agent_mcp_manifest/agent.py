@@ -1,4 +1,4 @@
-# src/file_agent/agent.py
+# src/file_agent_mcp_manifest/agent.py
 import json
 import openai
 from rich.console import Console
@@ -7,8 +7,7 @@ import yaml
 
 BASE_DIR = Path(__file__).parent 
 
-from .tools import execute_tool
-from .tool_schemas import TOOLS
+from .tool_loader import load_tools_from_manifest
 
 console = Console()
 
@@ -40,11 +39,14 @@ def build_system_prompt(manifest: dict) -> str:
     return role + "\n\n---\n\n## Loaded Skills\n\n" + skills
 
 class FileAgent:
-    def __init__(self, manifest_path: str = "agent.yaml"):
+    def __init__(self, manifest_path: str = "agent.yaml", mcp_path: str | None = None):
         self.client = openai.OpenAI()
         self.manifest = load_agent_manifest(manifest_path)
         self.model = self.manifest["model"]["name"]
         self.max_iterations = self.manifest["settings"]["max_iterations"]
+        # MCP config path: from manifest if set, else override, else default
+        resolved_mcp = mcp_path or self.manifest.get("mcp", "mcp.json")
+        self.tools, self.tool_registry = load_tools_from_manifest(resolved_mcp)
 
         self.system_prompt = build_system_prompt(self.manifest)
         # OpenAI includes the system message in the conversation history list
@@ -60,9 +62,15 @@ class FileAgent:
         """Make an API call with the current conversation history."""
         return self.client.chat.completions.create(
             model=self.model,
-            tools=TOOLS,
+            tools=self.tools,
             messages=self.conversation_history,
         )
+    
+    # agent.py — after tool_loader
+    def _execute_tool(self, name: str, tool_input: dict) -> str:
+        if name not in self.tool_registry:
+            return f"Error: tool '{name}' not available."
+        return self.tool_registry[name](**tool_input)
 
     def _handle_tool_use(self, response) -> bool:
         """
@@ -94,7 +102,7 @@ class FileAgent:
                 f"[dim]with[/dim] {tool_input}"
             )
 
-            result = execute_tool(name, tool_input)
+            result = self._execute_tool(name, tool_input)
 
             console.print(
                 f"  [dim]✓ Result preview: {result[:120].strip()}...[/dim]\n"

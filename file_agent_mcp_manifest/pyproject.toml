@@ -1,18 +1,18 @@
 [project]
-name = "file-agent-manifest"
+name = "file-agent-mcp-manifest"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "openai>=2.26.0",
- "python-dotenv>=1.2.2",
- "pyyaml>=6.0.3",
- "rich>=14.3.3",
+    "python-dotenv>=1.2.2",
+    "pyyaml>=6.0.3",
+    "rich>=14.3.3",
 ]
 
 [project.scripts]
-file-agent-manifest = "file_agent_manifest.main:main"
+file-agent-mcp-manifest = "file_agent_mcp_manifest.main:main"
 
 
 [build-system]
@@ -21,4 +21,4 @@ build-backend = "hatchling.build"
 
 
 [tool.hatchling.build.targets.wheel]
-packages = ["src/file_agent_manifest"]
+packages = ["src/file_agent_mcp_manifest"]

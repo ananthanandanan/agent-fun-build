@@ -1,8 +1,8 @@
 # agent.yaml — The agent's top-level manifest
 
-name: "File Agent Manifest"
+name: "File Agent MCP Manifest"
 version: "1.0.0"
-description: "A CLI agent that navigates and reads the local filesystem manifest"
+description: "A CLI agent that navigates and reads the local filesystem MCP manifest"
 
 # Which LLM to use
 model:
@@ -11,6 +11,9 @@ model:
 
 # Point to the role definition
 role: ROLE.md
+
+# MCP manifest: which tools to load (path relative to package directory)
+mcp: mcp.json
 
 # Which skills this agent has loaded
 # Skills are loaded in order — later skills can reference earlier ones
